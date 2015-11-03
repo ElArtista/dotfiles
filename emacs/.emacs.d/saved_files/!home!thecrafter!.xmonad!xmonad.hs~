@@ -1,0 +1,58 @@
+import XMonad
+import XMonad.Hooks.DynamicLog
+import XMonad.Hooks.ManageDocks
+import XMonad.Util.Run(spawnPipe)
+import XMonad.Layout.Spacing
+import System.IO
+import XMonad.Config.Gnome
+
+--------------------------------------------------
+-- Settings
+--------------------------------------------------
+myTerminal = "urxvt"
+myModMask  = mod4Mask
+
+-- Colors
+myInactiveBorderColor = "#000C57"
+myActiveBorderColor   = "#4682B4"
+
+{--}
+-- Layout
+myLayout = tiled ||| Mirror tiled ||| Full
+  where
+      -- Default tiling algorithm partitions the screen into 2 panes
+      tiled = spacing 2 $ Tall nmaster delta ratio
+
+      -- The default master of windows in master pane
+      nmaster = 1
+
+      -- Default proportion of the screen occupied by master pane
+      ratio = 1/2
+
+      -- Percent of screen to increment by when resizing panes
+      delta = 5/100
+--}
+
+-- Conky
+--myConkyBar = "conky -c ~/.conky_bar"
+
+main = do
+    xmproc <- spawnPipe "/usr/bin/xmobar ~/.xmobarrc"
+--    conkyBar <- spawnPipe myConkyBar
+
+    xmonad $ gnomeConfig --defaultConfig
+        { terminal           = myTerminal
+        , modMask            = myModMask
+        , borderWidth        = 2
+        , normalBorderColor  = myInactiveBorderColor
+        , focusedBorderColor = myActiveBorderColor
+
+        , manageHook = manageDocks <+> manageHook defaultConfig
+        , layoutHook = avoidStruts $ myLayout
+--        , layoutHook = avoidStruts $ layoutHook defaultConfig
+        , logHook    = dynamicLogWithPP xmobarPP
+            { ppOutput = hPutStrLn xmproc
+            , ppTitle  = xmobarColor "blue" "" . shorten 50
+            , ppLayout = const "" -- to disable the layout info on xmobar
+  	    }
+        }

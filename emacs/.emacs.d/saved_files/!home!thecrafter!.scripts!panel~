@@ -1,0 +1,367 @@
+#!/usr/bin/bash
+
+#################################################################
+#-
+#=- Configuration
+#-
+#################################################################
+
+# File locations
+MSGFILE=$HOME/.weechat/highlights.txt
+
+# Hardware
+WIFI_INTERFACE="wlp3s0"
+POWERSUPPLY="/sys/class/power_supply/AC0"
+BATTERY="/sys/class/power_supply/BAT0"
+
+#################################################################
+#-
+#=- Customization
+#-
+#################################################################
+
+# Dimensions
+PANEL_HEIGHT=24
+
+# Fonts
+PANEL_FONT="Source Sans Pro:size=10"
+ICON_FONT="FontAwesome:size=13"
+
+#
+# Colors
+#
+
+# Grey Material Design palette
+COLOR_GREY_50='#FAFAFA'
+COLOR_GREY_100='#F5F5F5'
+COLOR_GREY_200='#EEEEEE'
+COLOR_GREY_300='#E0E0E0'
+COLOR_GREY_400='#BDBDBD'
+COLOR_GREY_500='#9E9E9E'
+COLOR_GREY_600='#757575'
+COLOR_GREY_700='#616161'
+COLOR_GREY_800='#424242'
+COLOR_GREY_900='#212121'
+
+# Blue Gray Material Design palette
+COLOR_BLUEGRAY_50='#ECEFF1'
+COLOR_BLUEGRAY_100='#CFD8DC'
+COLOR_BLUEGRAY_200='#B0BEC5'
+COLOR_BLUEGRAY_300='#90A4AE'
+COLOR_BLUEGRAY_400='#78909C'
+COLOR_BLUEGRAY_500='#607D8B'
+COLOR_BLUEGRAY_600='#546E7A'
+COLOR_BLUEGRAY_700='#455A64'
+COLOR_BLUEGRAY_800='#37474F'
+COLOR_BLUEGRAY_900='#263238'
+
+# Red Material Design palette
+COLOR_RED_50='#FFEBEE'
+COLOR_RED_100='#FFCDD2'
+COLOR_RED_200='#EF9A9A'
+COLOR_RED_300='#E57373'
+COLOR_RED_400='#EF5350'
+COLOR_RED_500='#F44336'
+COLOR_RED_600='#E53935'
+COLOR_RED_700='#D32F2F'
+COLOR_RED_800='#C62828'
+COLOR_RED_900='#B71C1C'
+
+#
+# Bar colors
+#
+# Main colors
+COLOR_FOREGROUND=$COLOR_BLUEGRAY_500
+COLOR_BACKGROUND=$COLOR_GREY_900
+
+# Occupied
+COLOR_FOCUSED_OCCUPIED_FG=$COLOR_BLUEGRAY_100
+COLOR_FOCUSED_OCCUPIED_BG=$COLOR_BLUEGRAY_400
+COLOR_OCCUPIED_FG=$COLOR_BLUEGRAY_100
+COLOR_OCCUPIED_BG=$COLOR_BACKGROUND
+
+# Free
+COLOR_FOCUSED_FREE_FG=$COLOR_BACKGROUND
+COLOR_FOCUSED_FREE_BG=$COLOR_BLUEGRAY_400
+COLOR_FREE_FG=$COLOR_FOREGROUND
+COLOR_FREE_BG=$COLOR_BACKGROUND
+
+# Urgent
+COLOR_FOCUSED_URGENT_FG=$COLOR_RED_700
+COLOR_FOCUSED_URGENT_BG=$COLOR_BLUEGRAY_400
+COLOR_URGENT_FG=$COLOR_BLUEGRAY_50
+COLOR_URGENT_BG=$COLOR_RED_500
+
+# Wifi signal colors
+COLOR_SIGNAL_NONE=$COLOR_GREY_800
+COLOR_SIGNAL_LOW=$COLOR_COLOR_600
+COLOR_SIGNAL_MEDIUM=$COLOR_COLOR_400
+COLOR_SIGNAL_HIGH=$COLOR_GREY_200
+
+#
+# Icons
+#
+
+# Battery & Power related icons
+ICON_BATT_FULL='\uf240'
+ICON_BATT_HIGH='\uf241'
+ICON_BATT_MED='\uf242'
+ICON_BATT_LOW='\uf243'
+ICON_BATT_EMPTY='\uf244'
+ICON_POWER_PLUG='\uf1e6'
+
+# Music player icons
+ICON_PREV='\uf048'
+ICON_PLAY='\uf04b'
+ICON_NEXT='\uf051'
+
+# Volume icons
+ICON_VOL_UP='\uf028'
+ICON_VOL_DOWN='\uf027'
+ICON_VOL_OFF='\uf026'
+
+# Chat icons
+ICON_CHAT_CLEAR='\uf075'
+ICON_CHAT_BUSY='\uf0e5'
+
+# Signal icons
+ICON_WIFI='\uf1eb'
+
+#################################################################
+#-
+#=- Setup
+#-
+#################################################################
+
+# Check if panel is already running
+if [[ $(pgrep -cx panel) -gt 1 ]]; then
+    printf "%s\n" "The panel is already running." >&2
+    exit 1
+fi
+
+# Exit gracefully if terminated
+deinit(){
+    # Reset bspwm top_padding
+    bspc config top_padding 0
+    trap - TERM; kill 0
+}
+trap deinit INT TERM QUIT EXIT
+
+#################################################################
+#-
+#=- Info collectors
+#-
+#################################################################
+
+# Clock
+clock(){
+    echo -e "$(date +"%l:%M %p")"
+}
+
+# Date
+cal(){
+    echo -e "$(date +'%a, %b %d')"
+}
+
+# Battery
+battery(){
+    if [ -d $POWERSUPPLY ]; then
+        local batt_icon=""
+        local batt_level=$(acpi -b | grep -o '[[:digit:]]\+%' | sed 's/%//')
+        if [[ $(cat $POWERSUPPLY/online) != 1 ]]; then
+            if [[ $batt_level -ge 80 ]]; then
+                batt_icon=$ICON_BATT_FULL
+            elif [[ $batt_level -ge 60 && $batt_level -lt 80 ]]; then
+                batt_icon=$ICON_BATT_HIGH
+            elif [[ $batt_level -ge 40 && $batt_level -lt 60 ]]; then
+                batt_icon=$ICON_BATT_MED
+            elif [[ $batt_level -ge 20 && $batt_level -lt 40 ]]; then
+                batt_icon=$ICON_BATT_LOW
+            elif [[ $batt_level -lt 20 ]]; then
+                batt_icon=$ICON_BATT_EMPTY
+            fi
+        else
+            batt_icon=$ICON_POWER_PLUG
+        fi
+        # Uncomment next and delete the line after that to see percentage
+        echo -e $batt_icon $batt_level%
+        #echo -e $batt_icon
+    fi
+}
+
+# Alsa volume
+volume(){
+    local alsa_volume=$(amixer get Master | grep 'Mono: Playback' | grep -o '...%' | sed 's/\[//' | sed 's/%//' | sed 's/ //')
+    local alsa_state=$(amixer get Master | grep 'Mono: Playback' | grep -o '\[on]')
+
+    if [[ $alsa_state ]]; then
+        lonncal volume_icon=""
+        if [[ $alsa_volume -ge 70 ]]; then
+            volume_icon=$ICON_VOL_UP
+        elif [[ $alsa_volume -gt 0 && $alsa_volume -lt 70 ]]; then
+            volume_icon=$ICON_VOL_DOWN
+        elif [[ $alsa_volume -eq 0 ]]; then
+            volume_icon=$ICON_VOL_OFF
+        else
+            volume_icon=$ICON_VOL_OFF
+        fi
+        # Uncomment next and delte the line after that to see volume percentage
+        #echo -e $volume_icon $alsa_volume
+        echo -e $volume_icon
+    fi
+}
+
+# Weechat (use hl2file weechat script)
+weechat(){
+    if [ -f "$MSGFILE" ]; then
+        local weechat_icon=""
+        local unreadmessages=$(wc -l < "$MSGFILE")
+        if [[ $unreadmessages != 0 ]]; then
+            weechat_icon="$ICON_CHAT_BUSY[$unreadmessages]"
+        else
+            weechat_icon=$ICON_CHAT_CLEAR
+        fi
+        echo -e $weechat_icon
+    fi
+}
+
+# Wifi
+wifi(){
+    if (command -v iw >/dev/null 2>&1) && (iw dev $WIFI_INTERFACE link >/dev/null 2>&1); then
+        #local wifi_ssid=$(iw $WIFI_INTERFACE link | grep 'SSID' | sed 's/SSID: //' | sed 's/\t//')
+        local wifi_color=""
+        local wifi_signal=$(iw dev "$WIFI_INTERFACE" link | grep 'signal' | sed 's/signal: //' | sed 's/ dBm//' | sed 's/\t//')
+        if [ $? -eq 0 ]; then
+            if [[ $(iw dev "$WIFI_INTERFACE" link) != "Not connected." ]]; then
+                if [[ $wifi_signal -ge -67 ]]; then
+                    wifi_color=$COLOR_SIGNAL_HIGH
+                elif [[ $wifi_signal -ge -70 && $wifi_signal -lt -67 ]]; then
+                    wifi_color=$COLOR_SIGNAL_MEDIUM
+                elif [[ $wifi_signal -ge -80 && $wifi_signal -lt -70 ]]; then
+                    wifi_color=$COLOR_SIGNAL_LOW
+                fi
+                echo -e "%{F$wifi_color}$ICON_WIFI%{F-}"
+            else
+                wifi_color=$COLOR_SIGNAL_NONE
+                echo -e "%{F$wifi_color}$ICON_WIFI%{F-}"
+            fi
+        fi
+    fi
+}
+
+# Music controls
+music(){
+    local song_name=$(mpc current)
+    if [[ -n $song_name ]]; then
+        if mpc status | grep -q 'paused'; then
+            # Music is paused
+            echo -e "%{F$COLOR_FOCUSED_URGENT_FG}%{A:mpc play:}$song_name%{A}%{F-}"
+        else
+            # Music is playing
+            echo -e "%{F$COLOR_FOCUSED_OCCUPIED_FG}%{A:mpc pause:}$song_name%{A}%{F-}"
+        fi
+    fi
+}
+
+# Message loop
+panel_bar() {
+    while read -r line ; do
+        case $line in
+            UPDATE)
+                # Update polled state
+                local clock=$(clock)
+                local date=$(cal)
+                local battery=$(battery)
+                local volume=$(volume)
+                local messages=$(weechat)
+                local wifi=$(wifi)
+                local music=$(music)
+                ;;
+            TITLE*)
+                # Xtitle output
+                local title="${line#?????}"
+                ;;
+            W*)
+                # Bspwm internal state
+                IFS=':'
+                local cur_mon=0
+                local wm_infos=""
+                set -- ${line#?}
+                while [ $# -gt 0 ]; do
+                    item=$1
+                    name=${item#?}
+                    case $item in
+                        M*)
+                            # Active monitor
+                            ((cur_mon++))
+                            if [ $cur_mon -ge 2 ]; then break; fi
+                            ;;
+                        m*)
+                            # Inactive monitor
+                            ((cur_mon++))
+                            if [ $cur_mon -ge 2 ]; then break; fi
+                            ;;
+                        O*)
+                            # Focused occupied desktop
+                            wm_infos="${wm_infos}%{F$COLOR_FOCUSED_OCCUPIED_FG}%{B$COLOR_FOCUSED_OCCUPIED_BG}%{U$COLOR_FOREGROUND}%{+u}  ${name}  %{-u}%{B-}%{F-}"
+                            ;;
+                        F*)
+                            # Focused free desktop
+                            wm_infos="${wm_infos}%{F$COLOR_FOCUSED_FREE_FG}%{B$COLOR_FOCUSED_FREE_BG}%{U$COLOR_FOREGROUND}%{+u}  ${name}  %{-u}%{B-}%{F-}"
+                            ;;
+                        U*)
+                            # Focused urgent desktop
+                            wm_infos="${wm_infos}%{F$COLOR_FOCUSED_URGENT_FG}%{B$COLOR_FOCUSED_URGENT_BG}%{U$COLOR_FOREGROUND}%{+u}  ${name}  %{-u}%{B-}%{F-}"
+                            ;;
+                        o*)
+                            # Occupied desktop
+                            wm_infos="${wm_infos}%{F$COLOR_OCCUPIED_FG}%{B$COLOR_OCCUPIED_BG}%{A:bspc desktop -f ${name}:}  ${name}  %{A}%{B-}%{F-}"
+                            ;;
+                        f*)
+                            # Free desktop
+                            wm_infos="${wm_infos}%{F$COLOR_FREE_FG}%{B$COLOR_FREE_BG}%{A:bspc desktop -f ${name}:}  ${name}  %{A}%{B-}%{F-}"
+                            ;;
+                        u*)
+                            # Urgent desktop
+                            wm_infos="${wm_infos}%{F$COLOR_URGENT_FG}%{B$COLOR_URGENT_BG}  ${name}  %{B-}%{F-}"
+                            ;;
+                    esac
+                    shift
+                done
+                ;;
+        esac
+        printf "%s\n" "%{Sf}%{l}${wm_infos} ${title}%{Sl}%{c}${music}%{r}${messages}${wifi} ${volume} ${battery} | ${date} ${clock}  "
+    done
+}
+
+# Creates panel
+spawn_panel(){
+    # The fifo location
+    local panel_fifo="/tmp/panel-fifo"
+
+    # Remove old panel fifo, create new one
+    [ -e "$panel_fifo" ] && rm "$panel_fifo"
+    mkfifo "$panel_fifo"
+
+    # Set up bspwm to not overlap the panel
+    bspc config top_padding "$PANEL_HEIGHT"
+
+    # Get bspwms status feed
+    bspc control --subscribe > "$panel_fifo" &
+
+    # Window title
+    xtitle -sf 'TITLE%s' > "$panel_fifo" &
+
+    # Poll event sender
+    while true; do
+        echo "UPDATE"
+        sleep 1;
+    done > "$panel_fifo" &
+
+    # Dump panel into panel_bar and then into lemonbar
+    panel_bar < "$panel_fifo" | lemonbar -g x"$PANEL_HEIGHT" -f "$PANEL_FONT" -f "$ICON_FONT" -F "$COLOR_FOREGROUND" -B "$COLOR_BACKGROUND" -u 2 | bash &
+}
+
+spawn_panel
+
+wait

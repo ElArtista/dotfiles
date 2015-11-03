@@ -10,7 +10,7 @@
 MSGFILE=$HOME/.weechat/highlights.txt
 
 # Hardware
-WIFI_INTERFACE="wlan0"
+WIFI_INTERFACE="wlp3s0"
 POWERSUPPLY="/sys/class/power_supply/AC0"
 BATTERY="/sys/class/power_supply/BAT0"
 
@@ -184,8 +184,8 @@ battery(){
             batt_icon=$ICON_POWER_PLUG
         fi
         # Uncomment next and delete the line after that to see percentage
-        #echo -e $batt_icon $batt_level%
-        echo -e $batt_icon
+        echo -e $batt_icon $batt_level%
+        #echo -e $batt_icon
     fi
 }
 
@@ -330,7 +330,7 @@ panel_bar() {
                 done
                 ;;
         esac
-        printf "%s\n" "%{Sf}%{l}${wm_infos} ${title}%{Sl}%{c}${music}%{r}${messages}${wifi}${volume}${battery}${date} ${clock}  "
+        printf "%s\n" "%{Sf}%{l}${wm_infos} ${title}%{Sl}%{c}${music}%{r}${messages}${wifi} ${volume} | ${battery} | ${date} ${clock}  "
     done
 }
 
