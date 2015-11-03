@@ -1,0 +1,13 @@
+#
+# ~/.bash_profile
+#
+
+[[ -f ~/.bashrc ]] && . ~/.bashrc
+[[ -f ~/.profile ]] && . ~/.profile
+
+# Autostart X
+#/bin/sh -c 'echo ON > /proc/acpi/bbswitch'
+#tee /proc/acpi/bbswitch <<<ON
+#[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && startx -- &> /dev/null
+[[ -z $DISPLAY && $XDG_VTNR -eq 1 ]] && startx --
+

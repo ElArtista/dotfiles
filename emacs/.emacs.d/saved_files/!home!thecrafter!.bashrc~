@@ -1,0 +1,16 @@
+#
+# ~/.bashrc
+#
+
+# If not running interactively, don't do anything
+[[ $- != *i* ]] && return
+
+alias ls='ls --color=auto'
+PS1='[\u@\h \W]\$ '
+
+# Disown programs that I launch in the bacground ("emacs &" for example)
+# so I can close the terminal without them crashing
+PROMPT_COMMAND=${PROMPT_COMMAND:+$PROMPT_COMMAND; }'disown -a -h'
+
+# Update PATH
+PATH=$PATH:/home/thecrafter/.cabal/bin

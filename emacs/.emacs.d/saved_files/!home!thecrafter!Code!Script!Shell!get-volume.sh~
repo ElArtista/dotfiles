@@ -1,0 +1,3 @@
+#!/bin/bash
+awk -F[][] /dB/ { print $2 } /dev/fd/63
+

@@ -1,0 +1,10 @@
+# hard drive
+
+# Sets Advanced Power Management (APM). Values at [0,255].
+# Lower value = more aggresive power managment
+# Higher value = better performance
+# values 1-127 permit spin down
+# values 128+ do not permit spin down
+# value 255 disables the feature
+hdparm -B 127 /dev/sda
+
